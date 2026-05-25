@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Despliegue CNN MNIST - Predicción Real</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+
+  <style>
+    :root {
+      --azul: #2563eb;
+      --morado: #7c3aed;
+      --verde: #16a34a;
+      --rojo: #dc2626;
+      --oscuro: #0f172a;
+      --gris: #64748b;
+      --fondo: #f8fafc;
+      --borde: #e2e8f0;
+      --blanco: #ffffff;
+      --sombra: 0 16px 38px rgba(15, 23, 42, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(124, 58, 237, 0.16), transparent 30%),
+        linear-gradient(180deg, #ffffff, #eef2ff);
+      color: #1e293b;
+    }
+
+    .contenedor {
+      max-width: 1200px;
+      width: 94%;
+      margin: auto;
+      padding: 28px 0 55px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0f172a, #1d4ed8, #7c3aed);
+      color: white;
+      padding: 34px;
+      border-radius: 32px;
+      box-shadow: var(--sombra);
+      margin-bottom: 25px;
+    }
+
+    .hero span {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 46px;
+      line-height: 1;
+      letter-spacing: -1px;
+    }
+
+    .hero p {
+      max-width: 850px;
+      line-height: 1.55;
+      font-size: 17px;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--blanco);
+      border: 1px solid var(--borde);
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: 0 12px 32px rgba(15, 23, 42, 0.09);
+      margin-bottom: 22px;
+    }
+
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 27px;
+    }
+
+    .texto {
+      color: var(--gris);
+      line-height: 1.65;
+      margin: 0;
+    }
+
+    .estado {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1e40af;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-top: 16px;
+      font-weight: bold;
+    }
+
+    .estado.ok {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #86efac;
+    }
+
+    .estado.error {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    .zona-canvas {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 20px;
+    }
+
+    .canvas-box {
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 22px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .canvas-box h3 {
+      margin: 0 0 12px;
+    }
+
+    canvas {
+      max-width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--borde);
+    }
+
+    #canvasDibujo {
+      background: black;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    #canvas28 {
+      background: black;
+      image-rendering: pixelated;
+    }
+
+    .botones {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 13px 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    .btn-principal {
+      background: linear-gradient(135deg, var(--azul), var(--morado));
+      color: white;
+      box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
+    }
+
+    .btn-verde {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .btn-gris {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .btn-rojo {
+      background: #fee2e2;
+      color: var(--rojo);
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 13px;
+      border-radius: 16px;
+      border: 1px solid var(--borde);
+      background: #f8fafc;
+      margin-top: 10px;
+    }
+
+    .resultado {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 20px;
+      align-items: center;
+      background: linear-gradient(135deg, #eff6ff, #faf5ff);
+      border: 1px solid #c7d2fe;
+      border-radius: 24px;
+      padding: 22px;
+      margin-top: 16px;
+    }
+
+    .numero {
+      width: 110px;
+      height: 110px;
+      background: white;
+      border-radius: 30px;
+      display: grid;
+      place-items: center;
+      font-size: 64px;
+      font-weight: 900;
+      color: var(--azul);
+      box-shadow: 0 12px 28px rgba(37,99,235,0.18);
+    }
+
+    .clase {
+      font-size: 42px;
+      font-weight: 900;
+      color: var(--oscuro);
+      line-height: 1;
+    }
+
+    .confianza {
+      margin-top: 8px;
+      color: var(--gris);
+      font-weight: bold;
+    }
+
+    .barras {
+      margin-top: 22px;
+    }
+
+    .fila {
+      margin-bottom: 12px;
+    }
+
+    .fila-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: bold;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+
+    .barra {
+      height: 14px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .barra span {
+      height: 100%;
+      display: block;
+      background: linear-gradient(90deg, var(--azul), var(--morado));
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    .tips {
+      margin-top: 16px;
+      background: #f8fafc;
+      border: 1px solid var(--borde);
+      border-radius: 20px;
+      padding: 18px;
+    }
+
+    .tips ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--gris);
+      line-height: 1.6;
+    }
+
+    .codigo {
+      background: #020617;
+      color: #e2e8f0;
+      padding: 18px;
+      border-radius: 20px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .zona-canvas {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 38px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .resultado {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+
+      .numero {
+        margin: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="contenedor">
+
+    <section class="hero">
+      <span>Modelo real MNIST con TensorFlow.js</span>
+      <h1>Despliegue CNN para reconocer dígitos</h1>
+      <p>
+        Esta versión está corregida para reconocer números como el 5.
+        Primero intenta cargar un modelo MNIST real. Si no carga, puedes entrenarlo rápido en el navegador.
+        Dibuja el número en blanco sobre fondo negro.
+      </p>
+    </section>
+
+    <div class="grid">
+
+      <section class="card">
+        <h2>Entrada del usuario</h2>
+        <p class="texto">
+          Dibuja un dígito del 0 al 9. El sistema recorta automáticamente el número,
+          lo centra, lo convierte a 28×28 píxeles y lo envía al modelo.
+        </p>
+
+        <div class="zona-canvas">
+          <div class="canvas-box">
+            <h3>Dibuja aquí</h3>
+            <canvas id="canvasDibujo" width="280" height="280"></canvas>
+            <p class="texto">Usa trazos gruesos. Ejemplo: escribe un 5 grande.</p>
+          </div>
+
+          <div class="canvas-box">
+            <h3>Entrada real 28×28</h3>
+            <canvas id="canvas28" width="280" height="280"></canvas>
+            <p class="texto">Así entra la imagen a la CNN.</p>
+          </div>
+        </div>
+
+        <div class="botones">
+          <button class="btn-principal" onclick="predecir()">Predecir número</button>
+          <button class="btn-verde" onclick="entrenarModelo()">Entrenar rápido si no reconoce</button>
+          <button class="btn-gris" onclick="preprocesar()">Ver preprocesamiento</button>
+          <button class="btn-rojo" onclick="limpiar()">Limpiar</button>
+        </div>
+
+        <input type="file" id="imagenInput" accept="image/*">
+
+        <div id="estado" class="estado">
+          Cargando modelo...
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Predicción</h2>
+
+        <div class="resultado">
+          <div class="numero" id="numeroFinal">?</div>
+          <div>
+            <div class="clase" id="claseFinal">Sin predicción</div>
+            <div class="confianza" id="confianzaFinal">Confianza: --</div>
+          </div>
+        </div>
+
+        <div class="barras" id="barras"></div>
+
+        <div class="tips">
+          <b>Para que reconozca mejor el 5:</b>
+          <ul>
+            <li>Dibuja el número grande, ocupando casi todo el cuadro.</li>
+            <li>No hagas el trazo muy delgado.</li>
+            <li>Evita pegar el número al borde.</li>
+            <li>Escribe en blanco sobre fondo negro.</li>
+            <li>Si no carga el modelo externo, presiona “Entrenar rápido”.</li>
+          </ul>
+        </div>
+      </section>
+
+    </div>
+
+    <section class="card">
+      <h2>Funcionamiento técnico</h2>
+      <pre class="codigo"><code>1. Se recibe una imagen o dibujo.
+2. Se convierte a escala de grises.
+3. Se detecta el área donde está el número.
+4. Se recorta y centra el dígito.
+5. Se redimensiona a 28×28 píxeles.
+6. Se normaliza: valores de 0 a 1.
+7. La CNN predice una de las clases: 0,1,2,3,4,5,6,7,8,9.</code></pre>
+    </section>
+
+  </main>
+
+  <script>
+    let modelo = null;
+    let dibujando = false;
+
+    const URL_MODELO_PREENTRENADO =
+      "https://hpssjellis.github.io/beginner-tensorflowjs-examples-in-javascript/saved-models/mnist/convnet/my-mnist01.json";
+
+    const MNIST_IMAGES_SPRITE_PATH =
+      "https://storage.googleapis.com/learnjs-data/model-builder/mnist_images.png";
+
+    const MNIST_LABELS_PATH =
+      "https://storage.googleapis.com/learnjs-data/model-builder/mnist_labels_uint8";
+
+    const IMAGE_SIZE = 784;
+    const NUM_CLASSES = 10;
+    const NUM_DATASET_ELEMENTS = 65000;
+
+    const canvasDibujo = document.getElementById("canvasDibujo");
+    const ctx = canvasDibujo.getContext("2d");
+
+    const canvas28 = document.getElementById("canvas28");
+    const ctx28 = canvas28.getContext("2d");
+
+    iniciarCanvas();
+    cargarModelo();
+
+    async function cargarModelo() {
+      const estado = document.getElementById("estado");
+
+      try {
+        modelo = await tf.loadLayersModel(URL_MODELO_PREENTRENADO);
+        estado.className = "estado ok";
+        estado.innerHTML = "Modelo MNIST real cargado correctamente. Ya puedes dibujar y predecir.";
+      } catch (error) {
+        modelo = null;
+        estado.className = "estado error";
+        estado.innerHTML =
+          "No se pudo cargar el modelo externo. Presiona <b>Entrenar rápido si no reconoce</b> para crear el modelo en tu navegador.";
+      }
+    }
+
+    function iniciarCanvas() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, 280, 280);
+
+      ctx.lineWidth = 22;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "white";
+
+      ctx28.fillStyle = "black";
+      ctx28.fillRect(0, 0, 280, 280);
+
+      canvasDibujo.addEventListener("mousedown", iniciarDibujo);
+      canvasDibujo.addEventListener("mousemove", dibujar);
+      canvasDibujo.addEventListener("mouseup", terminarDibujo);
+      canvasDibujo.addEventListener("mouseleave", terminarDibujo);
+
+      canvasDibujo.addEventListener("touchstart", iniciarDibujoTouch, { passive: false });
+      canvasDibujo.addEventListener("touchmove", dibujarTouch, { passive: false });
+      canvasDibujo.addEventListener("touchend", terminarDibujo);
+    }
+
+    function iniciarDibujo(e) {
+      dibujando = true;
+      ctx.beginPath();
+      ctx.moveTo(e.offsetX, e.offsetY);
+    }
+
+    function dibujar(e) {
+      if (!dibujando) return;
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.stroke();
+    }
+
+    function terminarDibujo() {
+      dibujando = false;
+      preprocesar();
+    }
+
+    function iniciarDibujoTouch(e) {
+      e.preventDefault();
+      const rect = canvasDibujo.getBoundingClientRect();
+      const touch = e.touches[0];
+
+      dibujando = true;
+      ctx.beginPath();
+      ctx.moveTo(touch.clientX - rect.left, touch.clientY - rect.top);
+    }
+
+    function dibujarTouch(e) {
+      e.preventDefault();
+      if (!dibujando) return;
+
+      const rect = canvasDibujo.getBoundingClientRect();
+      const touch = e.touches[0];
+
+      ctx.lineTo(touch.clientX - rect.left, touch.clientY - rect.top);
+      ctx.stroke();
+    }
+
+    document.getElementById("imagenInput").addEventListener("change", function(e) {
+      const archivo = e.target.files[0];
+      if (!archivo) return;
+
+      const img = new Image();
+
+      img.onload = function() {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, 280, 280);
+
+        const escala = Math.min(260 / img.width, 260 / img.height);
+        const w = img.width * escala;
+        const h = img.height * escala;
+        const x = (280 - w) / 2;
+        const y = (280 - h) / 2;
+
+        ctx.drawImage(img, x, y, w, h);
+        preprocesar(true);
+      };
+
+      img.src = URL.createObjectURL(archivo);
+    });
+
+    function limpiar() {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, 280, 280);
+
+      ctx28.fillStyle = "black";
+      ctx28.fillRect(0, 0, 280, 280);
+
+      document.getElementById("numeroFinal").textContent = "?";
+      document.getElementById("claseFinal").textContent = "Sin predicción";
+      document.getElementById("confianzaFinal").textContent = "Confianza: --";
+      document.getElementById("barras").innerHTML = "";
+    }
+
+    function preprocesar(esImagenSubida = false) {
+      const temp = document.createElement("canvas");
+      temp.width = 280;
+      temp.height = 280;
+      const tctx = temp.getContext("2d");
+      tctx.drawImage(canvasDibujo, 0, 0);
+
+      let imgData = tctx.getImageData(0, 0, 280, 280);
+      let data = imgData.data;
+
+      let promedio = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const gris = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        promedio += gris;
+      }
+      promedio = promedio / (data.length / 4);
+
+      const invertir = esImagenSubida && promedio > 120;
+
+      let minX = 280;
+      let minY = 280;
+      let maxX = 0;
+      let maxY = 0;
+      let hayPixeles = false;
+
+      for (let y = 0; y < 280; y++) {
+        for (let x = 0; x < 280; x++) {
+          const i = (y * 280 + x) * 4;
+          let gris = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+
+          if (invertir) {
+            gris = 255 - gris;
+          }
+
+          data[i] = gris;
+          data[i + 1] = gris;
+          data[i + 2] = gris;
+          data[i + 3] = 255;
+
+          if (gris > 35) {
+            hayPixeles = true;
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+
+      tctx.putImageData(imgData, 0, 0);
+
+      const salida = document.createElement("canvas");
+      salida.width = 28;
+      salida.height = 28;
+      const sctx = salida.getContext("2d");
+      sctx.fillStyle = "black";
+      sctx.fillRect(0, 0, 28, 28);
+
+      if (!hayPixeles) {
+        mostrarCanvas28(salida);
+        return salida;
+      }
+
+      const padding = 20;
+      minX = Math.max(0, minX - padding);
+      minY = Math.max(0, minY - padding);
+      maxX = Math.min(279, maxX + padding);
+      maxY = Math.min(279, maxY + padding);
+
+      const ancho = maxX - minX + 1;
+      const alto = maxY - minY + 1;
+
+      const escala = 20 / Math.max(ancho, alto);
+      const nuevoAncho = ancho * escala;
+      const nuevoAlto = alto * escala;
+
+      const dx = (28 - nuevoAncho) / 2;
+      const dy = (28 - nuevoAlto) / 2;
+
+      sctx.drawImage(
+        temp,
+        minX,
+        minY,
+        ancho,
+        alto,
+        dx,
+        dy,
+        nuevoAncho,
+        nuevoAlto
+      );
+
+      salidaFinalCentrada(salida);
+      mostrarCanvas28(salida);
+
+      return salida;
+    }
+
+    function salidaFinalCentrada(canvas) {
+      const sctx = canvas.getContext("2d");
+      const img = sctx.getImageData(0, 0, 28, 28);
+      const data = img.data;
+
+      let suma = 0;
+      let cx = 0;
+      let cy = 0;
+
+      for (let y = 0; y < 28; y++) {
+        for (let x = 0; x < 28; x++) {
+          const i = (y * 28 + x) * 4;
+          const v = data[i] / 255;
+          suma += v;
+          cx += x * v;
+          cy += y * v;
+        }
+      }
+
+      if (suma === 0) return;
+
+      cx = cx / suma;
+      cy = cy / suma;
+
+      const shiftX = Math.round(14 - cx);
+      const shiftY = Math.round(14 - cy);
+
+      const copia = document.createElement("canvas");
+      copia.width = 28;
+      copia.height = 28;
+      const cctx = copia.getContext("2d");
+      cctx.drawImage(canvas, 0, 0);
+
+      sctx.fillStyle = "black";
+      sctx.fillRect(0, 0, 28, 28);
+      sctx.drawImage(copia, shiftX, shiftY);
+    }
+
+    function mostrarCanvas28(canvasPequeno) {
+      ctx28.imageSmoothingEnabled = false;
+      ctx28.fillStyle = "black";
+      ctx28.fillRect(0, 0, 280, 280);
+      ctx28.drawImage(canvasPequeno, 0, 0, 280, 280);
+    }
+
+    function obtenerTensor() {
+      const canvasPequeno = preprocesar();
+      const pctx = canvasPequeno.getContext("2d");
+      const img = pctx.getImageData(0, 0, 28, 28);
+      const data = img.data;
+
+      const pixeles = [];
+
+      for (let i = 0; i < data.length; i += 4) {
+        pixeles.push(data[i] / 255);
+      }
+
+      let tensor = tf.tensor4d(pixeles, [1, 28, 28, 1]);
+
+      if (modelo && modelo.inputs && modelo.inputs[0].shape.length === 2) {
+        tensor = tensor.reshape([1, 784]);
+      }
+
+      return tensor;
+    }
+
+    async function predecir() {
+      const estado = document.getElementById("estado");
+
+      if (!modelo) {
+        estado.className = "estado error";
+        estado.innerHTML =
+          "Aún no hay modelo cargado. Presiona <b>Entrenar rápido si no reconoce</b> y espera a que termine.";
+        return;
+      }
+
+      const tensor = obtenerTensor();
+
+      let salida = modelo.predict(tensor);
+      let datos = Array.from(await salida.data());
+
+      const suma = datos.reduce((a, b) => a + b, 0);
+      const minimo = Math.min(...datos);
+
+      if (minimo < 0 || suma < 0.9 || suma > 1.1) {
+        const soft = tf.softmax(salida);
+        datos = Array.from(await soft.data());
+        soft.dispose();
+      }
+
+      tensor.dispose();
+      salida.dispose();
+
+      mostrarResultado(datos);
+    }
+
+    function mostrarResultado(probabilidades) {
+      const max = Math.max(...probabilidades);
+      const indice = probabilidades.indexOf(max);
+
+      document.getElementById("numeroFinal").textContent = indice;
+      document.getElementById("claseFinal").textContent = "Número " + indice;
+      document.getElementById("confianzaFinal").textContent =
+        "Confianza: " + (max * 100).toFixed(2) + "%";
+
+      const barras = document.getElementById("barras");
+      barras.innerHTML = "";
+
+      const ordenado = probabilidades
+        .map((valor, i) => ({ numero: i, valor }))
+        .sort((a, b) => b.valor - a.valor);
+
+      ordenado.forEach(item => {
+        const porcentaje = item.valor * 100;
+
+        const div = document.createElement("div");
+        div.className = "fila";
+        div.innerHTML = `
+          <div class="fila-top">
+            <span>Número ${item.numero}</span>
+            <span>${porcentaje.toFixed(2)}%</span>
+          </div>
+          <div class="barra">
+            <span style="width:${porcentaje}%;"></span>
+          </div>
+        `;
+        barras.appendChild(div);
+      });
+    }
+
+    async function entrenarModelo() {
+      const estado = document.getElementById("estado");
+      estado.className = "estado";
+      estado.innerHTML = "Descargando MNIST y entrenando modelo. Espera unos minutos...";
+
+      const datos = await cargarDatosMNIST();
+
+      modelo = tf.sequential();
+
+      modelo.add(tf.layers.conv2d({
+        inputShape: [28, 28, 1],
+        filters: 16,
+        kernelSize: 3,
+        activation: "relu"
+      }));
+
+      modelo.add(tf.layers.maxPooling2d({
+        poolSize: 2,
+        strides: 2
+      }));
+
+      modelo.add(tf.layers.conv2d({
+        filters: 32,
+        kernelSize: 3,
+        activation: "relu"
+      }));
+
+      modelo.add(tf.layers.maxPooling2d({
+        poolSize: 2,
+        strides: 2
+      }));
+
+      modelo.add(tf.layers.flatten());
+
+      modelo.add(tf.layers.dense({
+        units: 64,
+        activation: "relu"
+      }));
+
+      modelo.add(tf.layers.dense({
+        units: 10,
+        activation: "softmax"
+      }));
+
+      modelo.compile({
+        optimizer: tf.train.adam(0.001),
+        loss: "categoricalCrossentropy",
+        metrics: ["accuracy"]
+      });
+
+      const numEntrenamiento = 15000;
+      const xs = tf.tensor4d(
+        datos.images.slice(0, numEntrenamiento * IMAGE_SIZE),
+        [numEntrenamiento, 28, 28, 1]
+      );
+
+      const ys = tf.tensor2d(
+        datos.labels.slice(0, numEntrenamiento * NUM_CLASSES),
+        [numEntrenamiento, NUM_CLASSES]
+      );
+
+      await modelo.fit(xs, ys, {
+        epochs: 4,
+        batchSize: 128,
+        validationSplit: 0.15,
+        callbacks: {
+          onEpochEnd: async (epoch, logs) => {
+            estado.className = "estado";
+            estado.innerHTML =
+              `Entrenando época ${epoch + 1}/4 - Accuracy: ${(logs.acc || logs.accuracy).toFixed(4)} - Loss: ${logs.loss.toFixed(4)}`;
+            await tf.nextFrame();
+          }
+        }
+      });
+
+      xs.dispose();
+      ys.dispose();
+
+      estado.className = "estado ok";
+      estado.innerHTML = "Modelo entrenado correctamente en el navegador. Ahora dibuja el 5 y presiona Predecir.";
+    }
+
+    async function cargarDatosMNIST() {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = MNIST_IMAGES_SPRITE_PATH;
+
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement("canvas");
+      const ctxSprite = canvas.getContext("2d");
+
+      const datasetBytesBuffer =
+        new ArrayBuffer(NUM_DATASET_ELEMENTS * IMAGE_SIZE * 4);
+
+      const datasetBytesView = new Float32Array(datasetBytesBuffer);
+
+      const chunkSize = 5000;
+      canvas.width = img.width;
+      canvas.height = chunkSize;
+
+      for (let i = 0; i < NUM_DATASET_ELEMENTS / chunkSize; i++) {
+        const datasetBytesViewChunk = datasetBytesView.subarray(
+          i * IMAGE_SIZE * chunkSize,
+          (i + 1) * IMAGE_SIZE * chunkSize
+        );
+
+        ctxSprite.drawImage(
+          img,
+          0,
+          i * chunkSize,
+          img.width,
+          chunkSize,
+          0,
+          0,
+          img.width,
+          chunkSize
+        );
+
+        const imageData = ctxSprite.getImageData(0, 0, canvas.width, canvas.height);
+
+        for (let j = 0; j < imageData.data.length / 4; j++) {
+          datasetBytesViewChunk[j] = imageData.data[j * 4] / 255;
+        }
+      }
+
+      const labelsResponse = await fetch(MNIST_LABELS_PATH);
+      const labels = new Uint8Array(await labelsResponse.arrayBuffer());
+
+      return {
+        images: datasetBytesView,
+        labels: labels
+      };
+    }
+  </script>
+</body>
+</html>
